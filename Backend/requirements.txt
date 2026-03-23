@@ -1,0 +1,30 @@
+# Web Framework
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-socketio>=5.10.0
+
+# Data Validation
+pydantic>=2.5.0
+
+# Computer Vision & Image Processing
+opencv-python>=4.8.1
+Pillow>=10.1.0
+
+# Deep Learning
+# Install PyTorch from official source for better compatibility
+# For CPU: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# For CUDA: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Scientific Computing
+# Use pre-built wheels to avoid compilation issues
+numpy>=1.26.0,<2.0.0
+pandas>=2.1.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Additional dependencies for ASGI
+python-multipart>=0.0.6
+
