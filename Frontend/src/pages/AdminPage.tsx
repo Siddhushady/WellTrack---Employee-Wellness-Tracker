@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { adminAPI, AdminStatsResponse, AdminEmotionStat } from '../services/api'
+import { adminAPI, AdminStatsResponse, AdminEmotionStat, CurrentWeekStats, FlaggedEmployee } from '../services/api'
 import EmotionChart from '../components/EmotionChart'
 import { AlertCircle, BarChart2, Activity, LogOut, Building2, LineChart, HeartPulse } from 'lucide-react'
 
@@ -30,6 +30,8 @@ const EMOTION_COLORS: Record<string, string> = {
 const AdminPage = () => {
   const navigate = useNavigate()
   const [stats, setStats] = useState<AdminStatsResponse | null>(null)
+  const [currentWeekStats, setCurrentWeekStats] = useState<CurrentWeekStats | null>(null)
+  const [flags, setFlags] = useState<FlaggedEmployee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -78,8 +80,14 @@ const AdminPage = () => {
       try {
         setLoading(true)
         setError('')
-        const data = await adminAPI.getStats()
+        const [data, weekData, flagsData] = await Promise.all([
+          adminAPI.getStats(),
+          adminAPI.getCurrentWeekStats(),
+          adminAPI.getFlags()
+        ])
         setStats(data)
+        setCurrentWeekStats(weekData)
+        setFlags(flagsData)
       } catch (err) {
         console.error(err)
         setError('Failed to load analytics. Please try again.')
@@ -123,7 +131,6 @@ const AdminPage = () => {
   }, [selectedDepartment])
 
   const departments = stats?.departments ?? []
-  const riskEmployees = stats?.risk_employees ?? []
 
   const departmentEmotionTotalCount = Object.values(departmentEmotionTotals).reduce((sum, count) => sum + count, 0)
 
@@ -167,21 +174,33 @@ const AdminPage = () => {
     .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
     .join(' ')
 
-  const totalDetections = Object.values(emotionTotals).reduce((sum, count) => sum + count, 0)
-  const positiveDetections = emotionTotals.happy + emotionTotals.neutral
-  const negativeDetections = emotionTotals.angry + emotionTotals.sad + emotionTotals.fear + emotionTotals.disgust
+  const weekEmotionTotals = useMemo(() => {
+    const base = { angry: 0, disgust: 0, fear: 0, happy: 0, neutral: 0, sad: 0, surprise: 0 }
+    if (currentWeekStats?.emotions) {
+      currentWeekStats.emotions.forEach(e => {
+        if (e.status in base) {
+          ;(base as Record<string, number>)[e.status] = e.total
+        }
+      })
+    }
+    return base
+  }, [currentWeekStats])
+
+  const totalDetections = Object.values(weekEmotionTotals).reduce((sum, count) => sum + count, 0)
+  const positiveDetections = weekEmotionTotals.happy + weekEmotionTotals.neutral
+  const negativeDetections = weekEmotionTotals.angry + weekEmotionTotals.sad + weekEmotionTotals.fear + weekEmotionTotals.disgust
   const positiveRatio = totalDetections > 0 ? (positiveDetections / totalDetections) * 100 : 0
   const negativeRatio = totalDetections > 0 ? (negativeDetections / totalDetections) * 100 : 0
 
   const negativeEmotions = ['angry', 'sad', 'fear', 'disgust'] as const
   let strongestNegativeEmotion: (typeof negativeEmotions)[number] = 'angry'
   negativeEmotions.forEach(emotion => {
-    if (emotionTotals[emotion] > emotionTotals[strongestNegativeEmotion]) {
+    if (weekEmotionTotals[emotion] > weekEmotionTotals[strongestNegativeEmotion]) {
       strongestNegativeEmotion = emotion
     }
   })
 
-  const lowestHappinessDepartment = [...departments]
+  const lowestHappinessDepartment = [...(currentWeekStats?.departments ?? [])]
     .filter(d => d.employee_count > 0)
     .sort((a, b) => a.happy_pct - b.happy_pct)[0]
 
@@ -406,21 +425,29 @@ const AdminPage = () => {
                 Decisions should combine this trend context with direct employee conversations and broader workplace indicators.
               </p>
             </div>
+            <div className="mt-6 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => navigate('/admin/employee-insights')}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-sm hover:shadow-md smooth-transition"
+              >
+                <span>View Detailed Employee Insights</span>
+              </button>
+            </div>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="glass-effect rounded-2xl p-6"
+            className="glass-effect rounded-2xl p-6 flex flex-col"
           >
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-5 h-5 text-primary-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Wellbeing risk indicators</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Employee Flags</h2>
             </div>
-            {riskEmployees.length > 0 ? (
+            {flags.length > 0 ? (
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                {riskEmployees.map(emp => (
+                {flags.map(emp => (
                   <div
                     key={emp.employee_id}
                     className="flex items-center justify-between text-sm border-b last:border-b-0 border-gray-100 pb-3 last:pb-0"
@@ -430,8 +457,8 @@ const AdminPage = () => {
                       <p className="text-xs text-gray-500">{emp.department}</p>
                     </div>
                     <div className="text-right text-xs text-gray-600">
-                      <p>
-                        {emp.negative_ratio.toFixed(1)}% negative emotions
+                      <p className="text-red-600 font-medium">
+                        {emp.negative_ratio.toFixed(1)}% negative
                       </p>
                       <p className="text-[11px] text-gray-500">
                         {emp.negative_count} of {emp.total_count} detections
@@ -441,11 +468,19 @@ const AdminPage = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">No clear risk patterns detected yet.</p>
+              <p className="text-sm text-gray-400">No flags detected recently.</p>
             )}
-            <p className="mt-4 text-xs text-gray-600">
-              Employees with high negative emotion share may need proactive support.
+            <p className="mt-4 text-xs text-gray-600 mb-4">
+              Employees with more negative emotions than positive/neutral/surprise.
             </p>
+            <div className="mt-auto pt-4 border-t border-gray-100">
+              <button
+                onClick={() => navigate('/admin/flags')}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium smooth-transition"
+              >
+                <span>View All Flags & Insights</span>
+              </button>
+            </div>
           </motion.div>
         </div>
       </main>

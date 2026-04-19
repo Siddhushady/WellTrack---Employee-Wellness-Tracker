@@ -77,3 +77,8 @@ lerna-debug.log*
 .cache/
 tmp/
 temp/
+
+# Excluded Markdown files
+requirements.md
+REVIEW_1_COMPLETE.md
+rules.md

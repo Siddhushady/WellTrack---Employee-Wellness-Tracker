@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,6 +23,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 import re
 import random
+from agents.data_agent import DataAgent
+from agents.coordinator import CoordinatorAgent
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -133,7 +135,7 @@ try:
     conn = psycopg2.connect(
         dbname="emotion_detection",
         user="postgres",
-        password="@Siddhuduke3",
+        password="Calcite*1234",
         host="localhost",
         port="5432"
     )
@@ -849,6 +851,15 @@ async def test_samples():
 
 @app.get("/admin_stats")
 async def admin_stats(department: str = "All", date_range: str = "Last 30 Days"):
+    if not conn or not cursor:
+        return {
+            "emotions": [],
+            "employees": [],
+            "departments": [],
+            "time_series": [],
+            "risk_employees": [],
+        }
+
     today = datetime.now().date()
     start_date = (
         today.strftime("%Y-%m-%d") if date_range == "Today" else
@@ -997,6 +1008,41 @@ async def admin_stats(department: str = "All", date_range: str = "Last 30 Days")
         conn.rollback()
         logger.error(f"Admin stats error: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving admin stats")
+
+@app.get("/admin_stats/current_week")
+async def admin_stats_current_week():
+    if not conn or not cursor:
+        return {"emotions": [], "departments": []}
+    agent = DataAgent(conn, cursor)
+    return agent.get_current_week_stats()
+
+@app.get("/admin_stats/flags")
+async def admin_stats_flags():
+    if not conn or not cursor:
+        return []
+    agent = DataAgent(conn, cursor)
+    return agent.get_flagged_employees()
+
+@app.get("/analyze/employee/stream")
+async def analyze_employee_stream(employee_id: str, prompt: str, timeframe: str = 'month'):
+    if not conn or not cursor:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    coordinator = CoordinatorAgent(conn, cursor)
+    days = 7 if timeframe == 'week' else 30
+    return StreamingResponse(
+        coordinator.analyze_employee_stream(employee_id, prompt, days), 
+        media_type="text/event-stream"
+    )
+
+@app.get("/analyze/flags/stream")
+async def analyze_flags_stream():
+    if not conn or not cursor:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    coordinator = CoordinatorAgent(conn, cursor)
+    return StreamingResponse(
+        coordinator.analyze_flags_stream(), 
+        media_type="text/event-stream"
+    )
 
 # Run the server
 if __name__ == "__main__":

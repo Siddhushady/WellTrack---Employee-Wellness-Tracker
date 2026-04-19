@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage'
 import Dashboard from './pages/Dashboard'
 import AdminPage from './pages/AdminPage'
 import EmployeeConsentPage from './pages/EmployeeConsentPage'
+import EmployeeInsightsPage from './pages/EmployeeInsightsPage'
+import FlagsPage from './pages/FlagsPage'
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/employee-consent" element={<EmployeeConsentPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/employee-insights" element={<EmployeeInsightsPage />} />
+        <Route path="/admin/flags" element={<FlagsPage />} />
       </Routes>
     </Router>
   )

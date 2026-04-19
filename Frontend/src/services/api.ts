@@ -79,6 +79,21 @@ export interface AdminStatsResponse {
   risk_employees: AdminRiskEmployee[]
 }
 
+export interface CurrentWeekStats {
+  start_date: string
+  end_date: string
+  emotions: AdminEmotionStat[]
+  departments: { department: string; employee_count: number; happy_pct: number }[]
+}
+
+export interface FlaggedEmployee {
+  employee_id: string
+  department: string
+  negative_count: number
+  total_count: number
+  negative_ratio: number
+}
+
 export const authAPI = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>('/login', data)
@@ -98,6 +113,14 @@ export const adminAPI = {
         date_range: params.date_range ?? 'Last 30 Days',
       },
     })
+    return response.data
+  },
+  getCurrentWeekStats: async (): Promise<CurrentWeekStats> => {
+    const response = await api.get<CurrentWeekStats>('/admin_stats/current_week')
+    return response.data
+  },
+  getFlags: async (): Promise<FlaggedEmployee[]> => {
+    const response = await api.get<FlaggedEmployee[]>('/admin_stats/flags')
     return response.data
   },
 }
