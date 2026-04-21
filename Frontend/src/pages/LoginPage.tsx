@@ -100,7 +100,7 @@ const LoginPage = () => {
       >
         <button
           onClick={() => navigate('/')}
-          className="mb-6 flex items-center space-x-2 text-gray-600 hover:text-gray-900 smooth-transition group"
+          className="mb-6 inline-flex items-center space-x-2 rounded-lg bg-gray-800 px-3 py-2 text-white hover:bg-gray-900 smooth-transition group"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 smooth-transition" />
           <span className="font-medium">Back to Home</span>

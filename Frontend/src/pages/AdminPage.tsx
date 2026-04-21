@@ -214,7 +214,12 @@ const AdminPage = () => {
       <header className="glass-effect border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Emotional Analytics</h1>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg">
+                <BarChart2 className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-800">Emotion Analytics</h1>
+            </div>
             <p className="text-sm text-gray-600">
               Overview of employee emotional wellness across the organisation.
             </p>
@@ -226,7 +231,7 @@ const AdminPage = () => {
               localStorage.removeItem('role')
               navigate('/')
             }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 smooth-transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-medium text-white smooth-transition"
           >
             <LogOut className="w-4 h-4" />
             <span>Logout</span>
@@ -403,26 +408,9 @@ const AdminPage = () => {
               </div>
             </div>
 
-            <div className="mt-4 space-y-3 text-xs text-gray-600 leading-relaxed">
+            <div className="mt-4 text-xs text-gray-600 leading-relaxed">
               <p>
-                This summary combines all current detection streams into one leadership-facing briefing. Positive ratio
-                tracks stabilising signals (happy + neutral), while negative ratio tracks stress-heavy signals (angry + sad + fear + disgust).
-              </p>
-              <p>
-                The most frequent negative emotion highlights the dominant strain pattern currently seen in the organisation.
-                If this remains unchanged across multiple reviews, it can indicate a persistent workplace driver instead of temporary noise.
-              </p>
-              <p>
-                The highlighted department is selected from the lowest happiness percentage across departments with active employees.
-                Use this as a triage pointer for targeted check-ins, manager coaching, workload balancing, and policy-level interventions.
-              </p>
-              <p>
-                Recommended review workflow: compare this card with the department emotion profile above, identify which emotions are overrepresented,
-                assign an owner for each intervention track, and re-check movement in the next cycle to confirm impact.
-              </p>
-              <p>
-                This panel is intended as an operational intelligence snapshot, not a diagnostic outcome for individuals.
-                Decisions should combine this trend context with direct employee conversations and broader workplace indicators.
+                A quick triage snapshot of positive versus strain-heavy signals, the strongest negative pattern, and the department most worth reviewing next.
               </p>
             </div>
             <div className="mt-6 pt-4 border-t border-gray-100">
@@ -476,9 +464,9 @@ const AdminPage = () => {
             <div className="mt-auto pt-4 border-t border-gray-100">
               <button
                 onClick={() => navigate('/admin/flags')}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium smooth-transition"
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-sm hover:shadow-md smooth-transition"
               >
-                <span>View All Flags & Insights</span>
+                <span>View All Flagged Data</span>
               </button>
             </div>
           </motion.div>

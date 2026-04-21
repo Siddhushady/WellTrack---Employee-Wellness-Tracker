@@ -27,6 +27,10 @@ class CoordinatorAgent:
             if "error" in data:
                 yield self._format_sse({"agent": "Data Agent", "status": "error", "message": data["error"]})
                 return
+
+            summary = self.data_agent.get_employee_emotion_summary(employee_id, days=days)
+            if "error" not in summary:
+                yield self._format_sse({"status": "summary", "summary": summary})
                 
             yield self._format_sse({"agent": "Data Agent", "status": "done", "message": "History retrieved successfully. Passing to Analysis Agent."})
             
@@ -40,7 +44,7 @@ class CoordinatorAgent:
             yield self._format_sse({"agent": "Analysis Agent", "status": "done", "message": "Insights generated successfully."})
             
             # Step 3: Send Final Result
-            yield self._format_sse({"status": "complete", "result": insights})
+            yield self._format_sse({"status": "complete", "result": insights, "summary": summary})
             
         except Exception as e:
             yield self._format_sse({"status": "error", "message": f"An unexpected error occurred: {str(e)}"})

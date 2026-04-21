@@ -86,6 +86,37 @@ export interface CurrentWeekStats {
   departments: { department: string; employee_count: number; happy_pct: number }[]
 }
 
+export interface EmployeeEmotionSummary {
+  employee_id: string
+  department: string
+  days: number
+  start_date: string
+  end_date: string
+  first_session_date: string | null
+  last_session_date: string | null
+  session_count: number
+  active_days: number
+  emotions: AdminEmotionStat[]
+}
+
+export interface WellnessReport {
+  id: number
+  employee_id: string
+  timeframe: 'week' | 'month'
+  report_type: 'insight' | 'flagged'
+  report_content: string
+  report_summary: EmployeeEmotionSummary
+  sent_at: string
+}
+
+export interface SendWellnessReportRequest {
+  employee_id: string
+  timeframe: 'week' | 'month'
+  report_type?: 'insight' | 'flagged'
+  report_content: string
+  report_summary: EmployeeEmotionSummary
+}
+
 export interface FlaggedEmployee {
   employee_id: string
   department: string
@@ -121,6 +152,29 @@ export const adminAPI = {
   },
   getFlags: async (): Promise<FlaggedEmployee[]> => {
     const response = await api.get<FlaggedEmployee[]>('/admin_stats/flags')
+    return response.data
+  },
+  getEmployeeEmotionSummary: async (
+    employeeId: string,
+    timeframe: 'week' | 'month'
+  ): Promise<EmployeeEmotionSummary> => {
+    const response = await api.get<EmployeeEmotionSummary>('/analyze/employee/summary', {
+      params: {
+        employee_id: employeeId,
+        timeframe,
+      },
+    })
+    return response.data
+  },
+  sendEmployeeReport: async (data: SendWellnessReportRequest): Promise<{ id: number; employee_id: string; sent_at: string }> => {
+    const response = await api.post<{ id: number; employee_id: string; sent_at: string }>('/employee_reports', data)
+    return response.data
+  },
+}
+
+export const reportAPI = {
+  getEmployeeReports: async (employeeId: string): Promise<WellnessReport[]> => {
+    const response = await api.get<WellnessReport[]>(`/employee_reports/${employeeId}`)
     return response.data
   },
 }

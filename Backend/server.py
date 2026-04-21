@@ -19,8 +19,9 @@ import logging
 import os
 import pandas as pd
 import psycopg2
+from psycopg2.extras import Json
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 import re
 import random
 from agents.data_agent import DataAgent
@@ -122,6 +123,18 @@ def init_database(conn):
                     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS wellness_reports (
+                    id SERIAL PRIMARY KEY,
+                    employee_id VARCHAR(50) REFERENCES employees(employee_id),
+                    timeframe VARCHAR(20) NOT NULL,
+                    report_type VARCHAR(20) NOT NULL DEFAULT 'insight',
+                    report_content TEXT NOT NULL,
+                    report_summary JSONB NOT NULL,
+                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cur.execute("ALTER TABLE wellness_reports ADD COLUMN IF NOT EXISTS report_type VARCHAR(20) NOT NULL DEFAULT 'insight'")
             conn.commit()
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
@@ -238,6 +251,13 @@ class EmployeeConsentRequest(BaseModel):
     consent_to_analytics: bool
     consent_to_policy: bool
     confirmation_text: str
+
+class WellnessReportRequest(BaseModel):
+    employee_id: str
+    timeframe: str
+    report_type: str = "insight"
+    report_content: str
+    report_summary: dict[str, Any]
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard():
@@ -1033,6 +1053,98 @@ async def analyze_employee_stream(employee_id: str, prompt: str, timeframe: str 
         coordinator.analyze_employee_stream(employee_id, prompt, days), 
         media_type="text/event-stream"
     )
+
+@app.get("/analyze/employee/summary")
+async def employee_emotion_summary(employee_id: str, timeframe: str = 'month'):
+    if not conn or not cursor:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    days = 7 if timeframe == 'week' else 30
+    agent = DataAgent(conn, cursor)
+    summary = agent.get_employee_emotion_summary(employee_id, days=days)
+    if isinstance(summary, dict) and summary.get("error"):
+        raise HTTPException(status_code=404, detail=summary["error"])
+    return summary
+
+@app.post("/employee_reports")
+async def send_employee_report(request: WellnessReportRequest):
+    if not conn or not cursor:
+        raise HTTPException(status_code=503, detail="Database not connected")
+    if request.timeframe not in {"week", "month"}:
+        raise HTTPException(status_code=400, detail="Invalid timeframe")
+    if request.report_type not in {"insight", "flagged"}:
+        raise HTTPException(status_code=400, detail="Invalid report type")
+    if not request.report_content.strip():
+        raise HTTPException(status_code=400, detail="Report content is required")
+
+    try:
+        cursor.execute(
+            "SELECT employee_id FROM employees WHERE employee_id = %s AND role = 'Employee'",
+            (request.employee_id,),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+        cursor.execute(
+            """
+            INSERT INTO wellness_reports
+            (employee_id, timeframe, report_type, report_content, report_summary)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id, sent_at
+            """,
+            (
+                request.employee_id,
+                request.timeframe,
+                request.report_type,
+                request.report_content,
+                Json(request.report_summary),
+            ),
+        )
+        report_id, sent_at = cursor.fetchone()
+        conn.commit()
+        return {
+            "id": report_id,
+            "employee_id": request.employee_id,
+            "sent_at": sent_at.isoformat(),
+        }
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error sending employee report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send report")
+
+@app.get("/employee_reports/{employee_id}")
+async def get_employee_reports(employee_id: str):
+    if not conn or not cursor:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    try:
+        cursor.execute(
+            """
+            SELECT id, employee_id, timeframe, report_type, report_content, report_summary, sent_at
+            FROM wellness_reports
+            WHERE employee_id = %s
+            ORDER BY sent_at DESC
+            """,
+            (employee_id,),
+        )
+        reports = []
+        for row in cursor.fetchall():
+            reports.append({
+                "id": row[0],
+                "employee_id": row[1],
+                "timeframe": row[2],
+                "report_type": row[3],
+                "report_content": row[4],
+                "report_summary": row[5],
+                "sent_at": row[6].isoformat(),
+            })
+        return reports
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error fetching employee reports: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch reports")
 
 @app.get("/analyze/flags/stream")
 async def analyze_flags_stream():

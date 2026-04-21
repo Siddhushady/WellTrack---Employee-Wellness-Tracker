@@ -158,3 +158,52 @@ class DataAgent:
             self.conn.rollback()
             logger.error(f"Error fetching history for {employee_id}: {e}")
             return {"error": str(e)}
+
+    def get_employee_emotion_summary(self, employee_id: str, days: int = 30):
+        """Fetches aggregate emotion distribution for a specific employee."""
+        if not self.conn or not self.cursor:
+            return {"error": "Database not connected"}
+
+        try:
+            self.cursor.execute("SELECT department FROM employees WHERE employee_id = %s", (employee_id,))
+            emp = self.cursor.fetchone()
+            if not emp:
+                return {"error": f"Employee {employee_id} not found."}
+
+            department = emp[0]
+            start_date = datetime.now().date() - timedelta(days=days)
+
+            self.cursor.execute("""
+                SELECT ed.emotion, SUM(ed.count) AS total_count
+                FROM sessions s
+                JOIN emotion_details ed ON s.id = ed.session_id
+                WHERE s.employee_id = %s AND s.session_date >= %s
+                GROUP BY ed.emotion
+                ORDER BY total_count DESC
+            """, (employee_id, start_date))
+            emotions = [{"status": row[0], "total": int(row[1])} for row in self.cursor.fetchall()]
+
+            self.cursor.execute("""
+                SELECT COUNT(DISTINCT s.id), COUNT(DISTINCT s.session_date),
+                       MIN(s.session_date), MAX(s.session_date)
+                FROM sessions s
+                WHERE s.employee_id = %s AND s.session_date >= %s
+            """, (employee_id, start_date))
+            session_count, active_days, first_date, last_date = self.cursor.fetchone()
+
+            return {
+                "employee_id": employee_id,
+                "department": department,
+                "days": days,
+                "start_date": str(start_date),
+                "end_date": str(datetime.now().date()),
+                "first_session_date": str(first_date) if first_date else None,
+                "last_session_date": str(last_date) if last_date else None,
+                "session_count": int(session_count or 0),
+                "active_days": int(active_days or 0),
+                "emotions": emotions,
+            }
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Error fetching emotion summary for {employee_id}: {e}")
+            return {"error": str(e)}
