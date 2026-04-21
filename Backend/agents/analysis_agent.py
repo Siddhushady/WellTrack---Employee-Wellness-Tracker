@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # Initialize OpenAI client pointing to local LM Studio
 # Ensure your LM Studio server is running at this address
 client = AsyncOpenAI(
-    base_url="http://192.168.1.31:1234/v1",
+    base_url="http://127.0.0.1:1234/v1",
     api_key="lm-studio" # API key is not required for local LM Studio, but the library requires a string
 )
 

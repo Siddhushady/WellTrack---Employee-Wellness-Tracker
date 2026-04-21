@@ -135,7 +135,7 @@ try:
     conn = psycopg2.connect(
         dbname="emotion_detection",
         user="postgres",
-        password="Calcite*1234",
+        password="@Siddhuduke3",
         host="localhost",
         port="5432"
     )
